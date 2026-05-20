@@ -116,20 +116,18 @@ pipeline {
         // Result: zero downtime.
         stage('Deploy to Kubernetes') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-                    sh """
-                        kubectl set image deployment/backend \
-                          backend=${BACKEND_IMAGE}:${IMAGE_TAG} \
-                          -n naqsh --record
+                sh """
+                    kubectl set image deployment/backend \
+                        backend=${BACKEND_IMAGE}:${IMAGE_TAG} \
+                        -n naqsh --record
 
-                        kubectl set image deployment/frontend \
-                          frontend=${FRONTEND_IMAGE}:${IMAGE_TAG} \
-                          -n naqsh --record
+                    kubectl set image deployment/frontend \
+                        frontend=${FRONTEND_IMAGE}:${IMAGE_TAG} \
+                        -n naqsh --record
 
-                        kubectl rollout status deployment/backend -n naqsh --timeout=120s
-                        kubectl rollout status deployment/frontend -n naqsh --timeout=120s
-                    """
-                }
+                    kubectl rollout status deployment/backend -n naqsh --timeout=120s
+                    kubectl rollout status deployment/frontend -n naqsh --timeout=120s
+                """
             }
         }
     }
