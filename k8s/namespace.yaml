@@ -1,0 +1,16 @@
+# ============================================================
+# Kubernetes Namespace
+# ============================================================
+# WHAT IS A NAMESPACE?
+# A namespace is like a folder — it groups related resources
+# together. Instead of everything being in the default
+# namespace, we put all NAQSH resources in their own "naqsh"
+# namespace. This keeps things organized and makes cleanup
+# easy: "kubectl delete namespace naqsh" removes everything.
+# ============================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: naqsh
+  labels:
+    app: naqsh

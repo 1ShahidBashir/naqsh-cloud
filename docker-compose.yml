@@ -1,0 +1,64 @@
+# ============================================================
+# Docker Compose — Local Development Stack
+# ============================================================
+# WHAT IS DOCKER COMPOSE?
+# Instead of running 3 separate "docker run" commands (one for
+# backend, one for frontend, one for Redis), Docker Compose
+# lets you define ALL services in one file and start them with
+# a single command:  docker-compose up
+#
+# HOW TO USE:
+#   docker-compose up --build     (first time / after code changes)
+#   docker-compose up             (start existing containers)
+#   docker-compose down           (stop everything)
+#   docker-compose logs backend   (see backend logs)
+#
+# This simulates the production Kubernetes setup on your laptop.
+# ============================================================
+
+services:
+  # ---- Redis: The message broker ----
+  # Redis sits between your backend pods. When User A draws
+  # something on Pod 1, the event is published to Redis,
+  # which pushes it to Pod 2 where User B is connected.
+  # In local dev with one backend, this is optional but good
+  # for testing the adapter works.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # ---- Backend: Your Node.js/Express/Socket.io server ----
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - CLIENT=http://localhost:5173
+      - REDIS_URL=redis://redis:6379
+      # Pass your Groq API key here (or use .env file)
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # ---- Frontend: React app served by Nginx ----
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # This tells Vite where the backend lives.
+        # "backend" is the Docker Compose service name,
+        # but since the browser makes requests (not the
+        # container), we use localhost here for local dev.
+        VITE_SERVER: http://localhost:3001
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

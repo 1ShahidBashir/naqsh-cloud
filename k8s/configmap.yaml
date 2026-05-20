@@ -1,0 +1,28 @@
+# ============================================================
+# ConfigMap — Environment Variables
+# ============================================================
+# WHAT IS A CONFIGMAP?
+# It stores non-secret configuration as key-value pairs.
+# Instead of hardcoding "PORT=3001" in your Dockerfile,
+# you put it here and Kubernetes injects it into containers
+# at runtime. Change the config → restart pods → new values.
+#
+# FOR SECRETS (like GROQ_API_KEY):
+# You'd use a Kubernetes Secret instead (base64 encoded).
+# We'll create that manually on the cluster since secrets
+# shouldn't be in Git.
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: naqsh-config
+  namespace: naqsh
+data:
+  PORT: "3001"
+  CLIENT: "*"
+  REDIS_URL: "redis://redis-service.naqsh.svc.cluster.local:6379"
+  # ↑ This is Kubernetes DNS:
+  # redis-service = the Service name we'll create for Redis
+  # naqsh         = our namespace
+  # svc.cluster.local = Kubernetes internal DNS suffix
+  # So the backend finds Redis at this address automatically.

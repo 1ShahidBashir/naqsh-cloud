@@ -1,0 +1,122 @@
+# ============================================================
+# Backend — Deployment & Service
+# ============================================================
+# This creates 2 replicas (copies) of your Node.js backend.
+# If one crashes, Kubernetes automatically restarts it.
+# If traffic spikes, the HPA (at the bottom) can scale to 5.
+#
+# LIVENESS PROBE: K8s pings your server every 30s. If it
+# doesn't respond 3 times in a row, K8s kills and restarts it.
+#
+# READINESS PROBE: K8s checks if the server is ready to
+# receive traffic. Until it passes, no requests are sent to it
+# (useful during startup when the server is still loading).
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: naqsh
+  labels:
+    app: backend
+spec:
+  replicas: 2  # Run 2 copies for high availability
+  selector:
+    matchLabels:
+      app: backend
+  # Rolling update: when deploying a new version, K8s starts
+  # new pods BEFORE killing old ones = zero downtime
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # Add 1 extra pod during update
+      maxUnavailable: 0  # Never have less than 2 running
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: 1sammy/naqsh-backend:latest
+          ports:
+            - containerPort: 3001
+          # Inject environment variables from our ConfigMap
+          envFrom:
+            - configMapRef:
+                name: naqsh-config
+          # Inject secrets (GROQ_API_KEY) — created manually:
+          # kubectl create secret generic naqsh-secrets \
+          #   --from-literal=GROQ_API_KEY=your_key -n naqsh
+          env:
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: naqsh-secrets
+                  key: GROQ_API_KEY
+          # Health checks
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3001
+            initialDelaySeconds: 15  # Wait 15s after start
+            periodSeconds: 30        # Check every 30s
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+---
+# ---------- Service ----------
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: naqsh
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - port: 3001
+      targetPort: 3001
+
+---
+# ============================================================
+# HPA — Horizontal Pod Autoscaler
+# ============================================================
+# WHAT IS HPA?
+# It watches CPU usage. If your backend pods are under heavy
+# load (>70% CPU), HPA automatically creates more pods.
+# When traffic drops, it scales back down. You never have
+# to manually add/remove servers.
+# ============================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: naqsh
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2   # Never go below 2
+  maxReplicas: 5   # Never exceed 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70  # Scale up when CPU > 70%

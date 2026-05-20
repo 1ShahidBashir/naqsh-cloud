@@ -1,0 +1,76 @@
+# ============================================================
+# Ingress — The Front Door
+# ============================================================
+# WHAT IS AN INGRESS?
+# An Ingress is like a "traffic cop" at the entrance of your
+# cluster. When a user visits http://YOUR_IP:
+#
+#   /              → goes to frontend (React app)
+#   /api/          → goes to backend (Express API)
+#   /socket.io/    → goes to backend (WebSocket connections)
+#
+# Without an Ingress, you'd need to expose each service
+# on a different port (e.g., :30001, :30002), which is ugly.
+#
+# NGINX INGRESS CONTROLLER:
+# The Ingress resource is just a "rule definition". You also
+# need an Ingress Controller (Nginx) to actually enforce
+# those rules. Install it on your cluster with:
+#
+#   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/baremetal/deploy.yaml
+#
+# WHY STICKY SESSIONS?
+# Socket.io uses a "handshake" process where the first few
+# requests MUST go to the same backend pod. Without sticky
+# sessions, request 1 might go to Pod A, request 2 to Pod B,
+# and the handshake fails. "cookie" affinity fixes this.
+# ============================================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: naqsh-ingress
+  namespace: naqsh
+  annotations:
+    # Use the Nginx Ingress Controller
+    kubernetes.io/ingress.class: nginx
+    # Enable sticky sessions for WebSocket support
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "naqsh-sticky"
+    nginx.ingress.kubernetes.io/session-cookie-hash: "sha1"
+    # WebSocket support — increase timeouts
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Allow large requests (for base64 canvas images sent to AI)
+    nginx.ingress.kubernetes.io/proxy-body-size: "15m"
+spec:
+  rules:
+    # No "host" = matches any hostname (raw IP works fine)
+    - http:
+        paths:
+          # Backend API routes
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 3001
+
+          # Socket.io WebSocket route
+          - path: /socket.io
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 3001
+
+          # Everything else → frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80

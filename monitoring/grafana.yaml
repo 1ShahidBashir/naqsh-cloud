@@ -1,0 +1,92 @@
+# ============================================================
+# Grafana — Deployment & Service
+# ============================================================
+# Grafana is the visual dashboard for your monitoring data.
+# It connects to Prometheus and displays beautiful graphs.
+#
+# ACCESS: http://YOUR_EC2_IP:30091
+# DEFAULT LOGIN: admin / admin (change on first login)
+#
+# AFTER FIRST LOGIN:
+#   1. Go to Configuration → Data Sources → Add Prometheus
+#   2. URL: http://prometheus-service.naqsh.svc.cluster.local:9090
+#   3. Click "Save & Test"
+#   4. Import dashboard ID 315 for Kubernetes cluster overview
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: naqsh
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.4.0
+          ports:
+            - containerPort: 3000
+          env:
+            # Auto-configure Prometheus as a data source
+            - name: GF_SECURITY_ADMIN_USER
+              value: "admin"
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: "admin"
+          volumeMounts:
+            - name: grafana-datasources
+              mountPath: /etc/grafana/provisioning/datasources
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+      volumes:
+        - name: grafana-datasources
+          configMap:
+            name: grafana-datasources
+
+---
+# Pre-configure Prometheus as a data source so you don't
+# have to do it manually in the Grafana UI
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: naqsh
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-service.naqsh.svc.cluster.local:9090
+        isDefault: true
+
+---
+# NodePort service — accessible from outside the cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-service
+  namespace: naqsh
+spec:
+  type: NodePort
+  selector:
+    app: grafana
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30091  # Access at http://EC2_IP:30091

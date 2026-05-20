@@ -1,0 +1,13 @@
+# ============================================================
+# Docker Ignore — Backend
+# ============================================================
+# Just like .gitignore, but for Docker. These files/folders
+# WON'T be copied into the Docker image. This keeps the
+# image small and prevents secrets from leaking.
+# ============================================================
+
+node_modules
+.env
+.git
+.gitignore
+npm-debug.log*

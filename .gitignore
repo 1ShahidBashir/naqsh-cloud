@@ -1,0 +1,22 @@
+# ============================================================
+# Root .gitignore — NAQSH Cloud
+# ============================================================
+
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/.terraform.lock.hcl
+*.tfvars
+
+# Environment files (contain secrets)
+.env
+
+# OS files
+.DS_Store
+
+# Node (covered by individual .gitignore files too)
+node_modules/
+
+# Synopsis PDF (not source code)
+# synopsis.pdf

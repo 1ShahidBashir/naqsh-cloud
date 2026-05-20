@@ -1,0 +1,60 @@
+# ============================================================
+# Redis — Deployment & Service
+# ============================================================
+# Redis runs as a single pod inside the cluster. It's the
+# Pub/Sub broker that connects all your backend pods together.
+#
+# The Service gives Redis a stable internal address
+# (redis-service.naqsh.svc.cluster.local) that never changes,
+# even if the Redis pod restarts and gets a new IP.
+# ============================================================
+
+# ---------- Deployment: runs the Redis container ----------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: naqsh
+  labels:
+    app: redis
+spec:
+  replicas: 1  # Only need 1 Redis instance
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          # Resource limits prevent Redis from consuming
+          # all memory on the node if something goes wrong
+          resources:
+            requests:
+              cpu: "100m"        # 0.1 CPU cores (minimum guaranteed)
+              memory: "128Mi"    # 128 MB RAM (minimum guaranteed)
+            limits:
+              cpu: "250m"        # 0.25 CPU cores (maximum allowed)
+              memory: "256Mi"    # 256 MB RAM (maximum allowed)
+
+---
+# ---------- Service: stable address for Redis ----------
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: naqsh
+spec:
+  # ClusterIP = internal only (not accessible from outside).
+  # Only our backend pods need to talk to Redis.
+  type: ClusterIP
+  selector:
+    app: redis  # Routes traffic to pods with label "app: redis"
+  ports:
+    - port: 6379
+      targetPort: 6379
